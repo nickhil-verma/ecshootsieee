@@ -97,6 +97,17 @@ app.put("/plants/RealTimeDetail", async (req, res) => {
   }
 });
 
+// Get Real-Time Plant Details (i.e., latest updated info)
+app.get("/plants/RealTimeDetail", async (req, res) => {
+  try {
+    // Fetch all plant details, which include the real-time info
+    const plants = await Plant.find();
+    res.status(200).json({ message: "Real-time plant details fetched successfully", plants });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Start Server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
