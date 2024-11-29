@@ -49,6 +49,36 @@ const RealTimePlant = mongoose.model("RealTimePlant", realTimePlantSchema);
 
 // Root Route
 app.get("/", (req, res) => res.send("Welcome to the Plant API!"));
+// Update Real-Time Plant Details by Name (Only temperature, soilMoisture, and humidity can be updated)
+app.put("/plants/RealTimeDetail", async (req, res) => {
+  const { name, temperature, soilMoisture, humidity } = req.body;
+
+  // Validate that only allowed fields are in the request
+  if (!name || Object.keys(req.body).some(key => !['name', 'temperature', 'soilMoisture', 'humidity'].includes(key))) {
+    return res.status(400).json({ error: "Only name, temperature, soilMoisture, and humidity can be updated." });
+  }
+
+  try {
+    // Find the plant by name
+    const realTimePlant = await RealTimePlant.findOne({ name });
+
+    if (!realTimePlant) {
+      return res.status(404).json({ error: "Plant not found." });
+    }
+
+    // Update only the allowed fields
+    if (temperature) realTimePlant.temperature = temperature;
+    if (soilMoisture) realTimePlant.soilMoisture = soilMoisture;
+    if (humidity) realTimePlant.humidity = humidity;
+
+    // Save the updated plant
+    await realTimePlant.save();
+
+    res.status(200).json({ message: "Real-time plant updated successfully", realTimePlant });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Basic Plant CRUD Operations
 app.get("/plants", async (req, res) => {
