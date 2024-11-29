@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+const cors = require("cors"); // Import CORS package
 require("dotenv").config(); // To load environment variables from a .env file
 
 const app = express();
@@ -8,6 +9,7 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json());
+app.use(cors()); // Use CORS middleware to allow cross-origin requests
 
 // MongoDB Connection
 mongoose
