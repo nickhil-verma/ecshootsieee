@@ -22,120 +22,31 @@ mongoose
     process.exit(1);
   });
 
-// Basic Plant Schema and Model (/plants route)
+// Schemas
 const plantSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   temperature: { type: String, required: true },
   soilMoisture: { type: String, required: true },
   humidity: { type: String, required: true },
-  harvestingTimePeriod: { type: String, required: true }
+  harvestingTimePeriod: { type: String, required: true },
 });
 
-
-
-const Plant = mongoose.model("Plant", plantSchema);
-
-// Real-Time Plant Schema and Model (/plants/RealTimeDetail route)
 const realTimePlantSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   temperature: { type: String, required: true },
   soilMoisture: { type: String, required: true },
   humidity: { type: String, required: true },
   dateOfSowing: { type: Date, required: true },
-  harvestingTimePeriod: { type: Number, required: true }, // In days
+  harvestingTimePeriod: { type: Number, required: true },
 });
 
+const Plant = mongoose.model("Plant", plantSchema);
 const RealTimePlant = mongoose.model("RealTimePlant", realTimePlantSchema);
 
 // Root Route
 app.get("/", (req, res) => res.send("Welcome to the Plant API!"));
-// Update Real-Time Plant Details by Name (Only temperature, soilMoisture, and humidity can be updated)
-app.put("/plants/RealTimeDetail", async (req, res) => {
-  const { name, temperature, soilMoisture, humidity } = req.body;
 
-  // Validate that only allowed fields are in the request
-  if (!name || Object.keys(req.body).some(key => !['name', 'temperature', 'soilMoisture', 'humidity'].includes(key))) {
-    return res.status(400).json({ error: "Only name, temperature, soilMoisture, and humidity can be updated." });
-  }
-
-  try {
-    // Find the plant by name
-    const realTimePlant = await RealTimePlant.findOne({ name });
-
-    if (!realTimePlant) {
-      return res.status(404).json({ error: "Plant not found." });
-    }
-
-    // Update only the allowed fields
-    if (temperature) realTimePlant.temperature = temperature;
-    if (soilMoisture) realTimePlant.soilMoisture = soilMoisture;
-    if (humidity) realTimePlant.humidity = humidity;
-
-    // Save the updated plant
-    await realTimePlant.save();
-
-    res.status(200).json({ message: "Real-time plant updated successfully", realTimePlant });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Basic Plant CRUD Operations
-app.get("/plants", async (req, res) => {
-  try {
-    const plants = await Plant.find();
-    res.status(200).json(plants);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/plants", async (req, res) => {
-  console.log(req.body); // Debug log
-
-  try {
-    const plants = req.body;
-    if (!Array.isArray(plants) || plants.length === 0) {
-      return res.status(400).json({ error: "Invalid or empty plant data" });
-    }
-    
-    const result = await Plant.insertMany(plants, { ordered: false });
-    res.status(201).json({ message: "Plants added successfully", result });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-// Add New Real-Time Plant
-app.post("/plants/RealTimeDetail", async (req, res) => {
-  try {
-    const { name, dateOfSowing, harvestingTimePeriod } = req.body;
-
-    // Try parsing the date as a valid date string
-    const sowingDate = new Date(dateOfSowing);
-    if (isNaN(sowingDate.getTime())) {
-      return res.status(400).json({ error: "Invalid date format for dateOfSowing. Ensure it's in the correct format." });
-    }
-
-    const existingPlant = await RealTimePlant.findOne({ name });
-
-    if (existingPlant) {
-      return res.status(400).json({ error: "Plant already exists in real-time tracking." });
-    }
-
-    const realTimePlant = new RealTimePlant({ ...req.body, dateOfSowing: sowingDate });
-    await realTimePlant.save();
-    res.status(201).json({ message: "Real-time plant added successfully", realTimePlant });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-
-// Get Real-Time Plants
+// Fetch Real-Time Plant Data
 app.get("/plants/RealTimeDetail", async (req, res) => {
   try {
     const plants = await RealTimePlant.find();
@@ -145,26 +56,61 @@ app.get("/plants/RealTimeDetail", async (req, res) => {
   }
 });
 
-// Periodic Removal of Matured Plants
-setInterval(async () => {
+// Fetch Ideal Plant Data
+app.get("/plants", async (req, res) => {
+  try {
+    const plants = await Plant.find();
+    res.status(200).json(plants);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Real-Time Plant Data with Randomized Conditions
+app.put("/plants/RealTimeDetail", async (req, res) => {
   try {
     const plants = await RealTimePlant.find();
-    const now = new Date();
 
-    for (const plant of plants) {
-      const sowingDate = new Date(plant.dateOfSowing);
-      const harvestDate = new Date(sowingDate);
-      harvestDate.setDate(harvestDate.getDate() + plant.harvestingTimePeriod);
+    for (let plant of plants) {
+      const temp = parseFloat(plant.temperature);
+      const soilMoisture = parseFloat(plant.soilMoisture);
+      const humidity = parseFloat(plant.humidity);
 
-      if (now >= harvestDate) {
-        await RealTimePlant.deleteOne({ _id: plant._id });
-        console.log(`Removed matured plant: ${plant.name}`);
-      }
+      // Randomize values by ±0.5-1
+      const newTemperature = (temp + Math.random() * (1 - 0.5) * (Math.random() < 0.5 ? -1 : 1)).toFixed(1);
+      const newSoilMoisture = (soilMoisture + Math.random() * (1 - 0.5) * (Math.random() < 0.5 ? -1 : 1)).toFixed(1);
+      const newHumidity = (humidity + Math.random() * (1 - 0.5) * (Math.random() < 0.5 ? -1 : 1)).toFixed(1);
+
+      // Update plant
+      await RealTimePlant.findByIdAndUpdate(plant._id, {
+        temperature: newTemperature,
+        soilMoisture: newSoilMoisture,
+        humidity: newHumidity,
+      });
+
+      console.log(`Updated plant: ${plant.name}`);
+    }
+    res.status(200).json({ message: "Plants updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Function to trigger PUT request every 5 seconds
+setInterval(async () => {
+  try {
+    const response = await fetch(`http://localhost:${port}/plants/RealTimeDetail`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.ok) {
+      console.log("Real-time data updated successfully");
     }
   } catch (err) {
-    console.error("Error removing matured plants:", err);
+    console.error("Error updating real-time data:", err);
   }
-}, 60000); // Runs every 60 seconds
+}, 5000); // 5 seconds interval
 
 // Start Server
 app.listen(port, () => {
